@@ -6,6 +6,11 @@ defmodule ChatBlast do
 
     {:ok, pid} = ChatBlast.start_link(%{
       publish_key: 'abc',
+      pubnub_config: [
+        channel: 'test',
+        pub_key: 'abc',
+        sub_key: '123',
+      ],
       rate_per_second: 5,
       subscribe_key: 'def'
     })
@@ -43,6 +48,8 @@ defmodule ChatBlast do
   use GenServer
 
   def blast_away(pid) do
+    HTTPoison.start()
+
     # Starts the long running task that sends messages at a specific rate.
     Task.start(fn -> send_messages(pid) end)
     :ok
@@ -64,6 +71,10 @@ defmodule ChatBlast do
     GenServer.call(pid, {:get_value, :delay})
   end
 
+  def get_pubnub_config(pid) do
+    GenServer.call(pid, {:get_value, :pubnub_config})
+  end
+
   def get_rate(pid) do
     GenServer.call(pid, {:get_value, :rate_per_second})
   end
@@ -72,8 +83,20 @@ defmodule ChatBlast do
     GenServer.call(pid, {:get_value, :status})
   end
 
+  def get_sent_count(pid) do
+    GenServer.call(pid, {:get_value, :sent_count})
+  end
+
+  def inc_sent_count(pid) do
+    GenServer.cast(pid, :inc_sent_count)
+  end
+
   def set_rate(pid, rate_per_second) do
     GenServer.cast(pid, {:set_rate, rate_per_second})
+  end
+
+  def handle_call({:get_value, key}, _from, current_state) do
+    {:reply, Map.get(current_state, key), current_state}
   end
 
   def handle_cast(:disable_sending, current_state) do
@@ -88,8 +111,10 @@ defmodule ChatBlast do
     {:noreply, Map.put(current_state, :status, :enabled)}
   end
 
-  def handle_call({:get_value, key}, _from, current_state) do
-    {:reply, Map.get(current_state, key), current_state}
+  def handle_cast(:inc_sent_count, current_state) do
+    sent_count = Map.get(current_state, :sent_count)
+
+    {:noreply, Map.put(current_state, :sent_count, sent_count + 1)}
   end
 
   def handle_cast({:set_rate, rate_per_second}, current_state) do
@@ -122,6 +147,7 @@ defmodule ChatBlast do
         %{
           delay: delay,
           rate_per_second: rate,
+          sent_count: 0,
           status: :enabled
         }
       )
@@ -135,25 +161,45 @@ defmodule ChatBlast do
   end
 
   def publish_message(:enabled, pid) do
-    IO.puts("sending message...")
+    {:ok, body} =
+      JSON.encode(
+        avatar: nil,
+        author: "Blast McGee",
+        body: "test #{get_sent_count(pid)}",
+        type: "fan"
+      )
 
-    # case PubNux.publish("channel name", "message") do
-    #  {:ok, payload} ->
-    #    IO.puts("Sent: #{payload}")
+    config = get_pubnub_config(pid)
+    headers = ["Content-Type": "application/json"]
 
-    #  {:error, message} ->
-    #    IO.puts("Error: #{message}")
+    case HTTPoison.post(pubnub_url(), body, headers) do
+      {:ok, %HTTPoison.Response{status_code: 200}} ->
+        inc_sent_count(pid)
+        IO.puts("sent!")
 
-    #  {:error, message, code: code} ->
-    #    IO.puts("Error: #{message} - #{code}")
-    # end
+      {:ok, %HTTPoison.Response{status_code: status_code}} ->
+        IO.puts("Failed to send: #{status_code}")
 
-    :continue
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        IO.puts("Failed to send: #{reason}")
+    end
   end
 
   def publish_message(:disabled, _pid) do
     IO.puts("sending disabled.")
-    :disabled
+  end
+
+  def pubnub_url do
+    # TODO: make configurable
+    shard = Enum.random(0..99)
+
+    channel = "your-channel"
+    pub_key = "your-pub_key"
+    sub_key = "your-sub-key"
+
+    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?meta=%7B%22shard%22%3A%20#{
+      shard
+    }%7D&uuid=chatblast-user-123"
   end
 
   defp send_messages(pid) do
@@ -163,7 +209,9 @@ defmodule ChatBlast do
     |> get_delay()
     |> Process.sleep()
 
-    if publish_message(pid) == :continue do
+    Task.start(fn -> publish_message(pid) end)
+
+    if get_status(pid) == :enabled do
       send_messages(pid)
     end
   end

@@ -23,10 +23,9 @@ defmodule ChatBlast.MixProject do
     [
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
-      {
-        :pubnux,
-        git: "https://github.com/MrCoffey/pubnux", branch: "master", app: false
-      }
+      {:hackney, "~> 1.16"},
+      {:httpoison, "~> 1.7"},
+      {:json, "~> 1.3"}
     ]
   end
 end
