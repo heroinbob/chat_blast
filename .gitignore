@@ -22,3 +22,5 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 chat_blast-*.tar
 
+# Creds we can use
+credentials.config

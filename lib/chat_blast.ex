@@ -5,14 +5,12 @@ defmodule ChatBlast do
   First, start a server. Note the required attributes being passed in here.
 
     {:ok, pid} = ChatBlast.start_link(%{
-      publish_key: 'abc',
       pubnub_config: [
         channel: 'test',
         pub_key: 'abc',
         sub_key: '123',
       ],
       rate_per_second: 5,
-      subscribe_key: 'def'
     })
     {:ok, #PID<0.115.0>}
 
@@ -169,10 +167,9 @@ defmodule ChatBlast do
         type: "fan"
       )
 
-    config = get_pubnub_config(pid)
     headers = ["Content-Type": "application/json"]
 
-    case HTTPoison.post(pubnub_url(), body, headers) do
+    case HTTPoison.post(pubnub_url(pid), body, headers) do
       {:ok, %HTTPoison.Response{status_code: 200}} ->
         inc_sent_count(pid)
         IO.puts("sent!")
@@ -189,13 +186,13 @@ defmodule ChatBlast do
     IO.puts("sending disabled.")
   end
 
-  def pubnub_url do
-    # TODO: make configurable
+  def pubnub_url(pid) do
     shard = Enum.random(0..99)
+    config = get_pubnub_config(pid)
 
-    channel = "your-channel"
-    pub_key = "your-pub_key"
-    sub_key = "your-sub-key"
+    channel = Map.get(config, :channel)
+    pub_key = Map.get(config, :pub_key)
+    sub_key = Map.get(config, :sub_key)
 
     "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?meta=%7B%22shard%22%3A%20#{
       shard

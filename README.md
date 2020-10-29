@@ -1,6 +1,44 @@
 # ChatBlast
 
-**TODO: Add description**
+## How To Use
+```
+# Start up an iex session
+iex -S mix
+
+# Start up a server...
+{:ok, pid} = ChatBlast.start_link(%{
+  pubnub_config: [
+    channel: 'test',
+    pub_key: 'abc',
+    sub_key: '123',
+  ],
+  rate_per_second: 5,
+})
+
+# Start sending
+ChatBlast.blast_away(pid)
+```
+
+The pid is your link to the running process. Now you can change rates and pause on the fly.
+
+```
+# Set to 10/second
+ChatBlast.set_rate(pid, 10)
+:ok
+
+You can also stop the send loop.
+
+ChatBlast.disable_sending(pid)
+:ok
+
+Now the loop will pick up on the new status and the thread will end. To start
+up again you can enable sending and start the process over.
+
+ChatBlast.enable_sending(pid)
+:ok
+ChatBlast.blast_away(pid)
+:ok
+```
 
 ## Installation
 
