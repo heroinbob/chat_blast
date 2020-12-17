@@ -7,11 +7,11 @@ iex -S mix
 
 # Start up a server...
 {:ok, pid} = ChatBlast.start_link(%{
-  pubnub_config: [
+  pubnub_config: %{
     channel: 'test',
     pub_key: 'abc',
     sub_key: '123',
-  ],
+  },
   rate_per_second: 5,
 })
 

@@ -5,11 +5,11 @@ defmodule ChatBlast do
   First, start a server. Note the required attributes being passed in here.
 
     {:ok, pid} = ChatBlast.start_link(%{
-      pubnub_config: [
+      pubnub_config: %{
         channel: 'test',
         pub_key: 'abc',
         sub_key: '123',
-      ],
+      },
       rate_per_second: 5,
     })
     {:ok, #PID<0.115.0>}
@@ -133,6 +133,8 @@ defmodule ChatBlast do
   end
 
   def init(options) do
+    Faker.start()
+
     # Setup the initial state. This calculates the necessary delay and
     # sending status.
     rate = Map.get(options, :rate_per_second, 1)
@@ -159,11 +161,14 @@ defmodule ChatBlast do
   end
 
   def publish_message(:enabled, pid) do
+    message = Faker.Lorem.sentence()
+
     {:ok, body} =
       JSON.encode(
         avatar: nil,
         author: "Blast McGee",
-        body: "test #{get_sent_count(pid)}",
+        body: "#{message} #{get_sent_count(pid)}",
+        cuid: "chatblast-user",
         type: "fan"
       )
 
@@ -194,9 +199,8 @@ defmodule ChatBlast do
     pub_key = Map.get(config, :pub_key)
     sub_key = Map.get(config, :sub_key)
 
-    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?meta=%7B%22shard%22%3A%20#{
-      shard
-    }%7D&uuid=chatblast-user-123"
+    # NOTE: Shard is actually named "s"
+    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?uuid=chatblast-user-123"
   end
 
   defp send_messages(pid) do
