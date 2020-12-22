@@ -4,14 +4,7 @@ defmodule ChatBlast do
 
   First, start a server. Note the required attributes being passed in here.
 
-    {:ok, pid} = ChatBlast.start_link(%{
-      pubnub_config: %{
-        channel: 'test',
-        pub_key: 'abc',
-        sub_key: '123',
-      },
-      rate_per_second: 5,
-    })
+    {:ok, pid} = ChatBlast.start_link(%{channel: 'test'})
     {:ok, #PID<0.115.0>}
 
   OK, so what? well it will be configured to allow sending so when you're ready
@@ -65,12 +58,20 @@ defmodule ChatBlast do
     GenServer.cast(pid, :enable_sending)
   end
 
+  def get_channel(pid) do
+    GenServer.call(pid, {:get_value, :channel})
+  end
+
   def get_delay(pid) do
     GenServer.call(pid, {:get_value, :delay})
   end
 
-  def get_pubnub_config(pid) do
-    GenServer.call(pid, {:get_value, :pubnub_config})
+  def get_pubnub_pub_key(pid) do
+    GenServer.call(pid, {:get_value, :pubnub_pub_key})
+  end
+
+  def get_pubnub_sub_key(pid) do
+    GenServer.call(pid, {:get_value, :pubnub_sub_key})
   end
 
   def get_rate(pid) do
@@ -87,6 +88,10 @@ defmodule ChatBlast do
 
   def inc_sent_count(pid) do
     GenServer.cast(pid, :inc_sent_count)
+  end
+
+  def set_channel(pid, channel) do
+    GenServer.cast(pid, {:set_channel, channel})
   end
 
   def set_rate(pid, rate_per_second) do
@@ -115,6 +120,10 @@ defmodule ChatBlast do
     {:noreply, Map.put(current_state, :sent_count, sent_count + 1)}
   end
 
+  def handle_cast({:set_channel, channel}, current_state) do
+    {:noreply, Map.put(current_state, :channel, channel)}
+  end
+
   def handle_cast({:set_rate, rate_per_second}, current_state) do
     # Change the rate per second for future sends.
     # Returns :ok
@@ -135,6 +144,8 @@ defmodule ChatBlast do
   def init(options) do
     Faker.start()
 
+    pubnub_config = load_pubnub_config
+
     # Setup the initial state. This calculates the necessary delay and
     # sending status.
     rate = Map.get(options, :rate_per_second, 1)
@@ -146,12 +157,21 @@ defmodule ChatBlast do
         options,
         %{
           delay: delay,
+          pubnub_pub_key: Map.get(pubnub_config, "pub_key"),
+          pubnub_sub_key: Map.get(pubnub_config, "sub_key"),
           rate_per_second: rate,
           sent_count: 0,
           status: :enabled
         }
       )
     }
+  end
+
+  def load_pubnub_config do
+    dir = File.cwd!()
+    content = File.read!("#{dir}/pubnub.config")
+
+    JSON.decode!(content)
   end
 
   def publish_message(pid) do
@@ -192,15 +212,12 @@ defmodule ChatBlast do
   end
 
   def pubnub_url(pid) do
-    shard = Enum.random(0..99)
-    config = get_pubnub_config(pid)
+    channel = get_channel(pid)
+    pub_key = get_pubnub_pub_key(pid)
+    sub_key = get_pubnub_sub_key(pid)
 
-    channel = Map.get(config, :channel)
-    pub_key = Map.get(config, :pub_key)
-    sub_key = Map.get(config, :sub_key)
-
-    # NOTE: Shard is actually named "s"
-    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?uuid=chatblast-user-123"
+    # This uses the "regulator" so pnregulator-incoming.<channel>
+    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/pnregulator-incoming.#{channel}/doNothingCallback?uuid=chatblast-user-123"
   end
 
   defp send_messages(pid) do

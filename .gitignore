@@ -23,4 +23,4 @@ erl_crash.dump
 chat_blast-*.tar
 
 # Creds we can use
-credentials.config
+pubnub.config

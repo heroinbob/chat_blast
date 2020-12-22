@@ -1,19 +1,17 @@
 # ChatBlast
 
 ## How To Use
+First you'll want to create `pubnub.config` which is a json file that contains
+`pub_key` and `sub_key` respectively. This is used to build the correct URL
+to send messages.
+
 ```
 # Start up an iex session
 iex -S mix
 
-# Start up a server...
-{:ok, pid} = ChatBlast.start_link(%{
-  pubnub_config: %{
-    channel: 'test',
-    pub_key: 'abc',
-    sub_key: '123',
-  },
-  rate_per_second: 5,
-})
+# Start up a server. This defaults to 1 msg/s. You can include rate_per_second
+# in this if you want to start at another rate.
+{:ok, pid} = ChatBlast.start_link(%{channel: 'test'})
 
 # Start sending
 ChatBlast.blast_away(pid)
