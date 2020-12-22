@@ -216,8 +216,7 @@ defmodule ChatBlast do
     pub_key = get_pubnub_pub_key(pid)
     sub_key = get_pubnub_sub_key(pid)
 
-    # This uses the "regulator" so pnregulator-incoming.<channel>
-    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/pnregulator-incoming.#{channel}/doNothingCallback?uuid=chatblast-user-123"
+    "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?uuid=chatblast-user-123"
   end
 
   defp send_messages(pid) do
