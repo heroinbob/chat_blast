@@ -36,6 +36,9 @@ defmodule ChatBlast do
   :ok
   """
 
+  @artist :artist
+  @fan :fan
+
   use GenServer
 
   def blast_away(pid) do
@@ -144,7 +147,7 @@ defmodule ChatBlast do
   def init(options) do
     Faker.start()
 
-    pubnub_config = load_pubnub_config
+    pubnub_config = load_pubnub_config()
 
     # Setup the initial state. This calculates the necessary delay and
     # sending status.
@@ -174,22 +177,14 @@ defmodule ChatBlast do
     JSON.decode!(content)
   end
 
-  def publish_message(pid) do
-    pid
-    |> get_status()
-    |> publish_message(pid)
-  end
-
-  def publish_message(:enabled, pid) do
-    message = Faker.Lorem.sentence()
-
+  def publish_message(:enabled, pid, message, user_type) do
     {:ok, body} =
       JSON.encode(
         avatar: nil,
         author: "Blast McGee",
         body: "#{message} #{get_sent_count(pid)}",
         cuid: "chatblast-user",
-        type: "fan"
+        type: user_type
       )
 
     headers = ["Content-Type": "application/json"]
@@ -207,7 +202,7 @@ defmodule ChatBlast do
     end
   end
 
-  def publish_message(:disabled, _pid) do
+  def publish_message(:disabled, _pid, _message, _user_type) do
     IO.puts("sending disabled.")
   end
 
@@ -219,6 +214,23 @@ defmodule ChatBlast do
     "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?uuid=chatblast-user-123"
   end
 
+  # Send a message as the artist. This ignores enabled/disabled status.
+  def send_artist_message(pid, message \\ Faker.Lorem.sentence()) do
+    publish_message(
+      :enabled,
+      pid,
+      message,
+      @artist
+    )
+  end
+
+  # Send a message as a fan. This adheres to the enabled/disable status.
+  def send_fan_message(pid, message \\ Faker.Lorem.sentence()) do
+    pid
+    |> get_status()
+    |> publish_message(pid, message, @fan)
+  end
+
   defp send_messages(pid) do
     # NOTE: This is a recursive loop and run as a separate task from
     # blast_away/1. So it's protected.
@@ -226,7 +238,7 @@ defmodule ChatBlast do
     |> get_delay()
     |> Process.sleep()
 
-    Task.start(fn -> publish_message(pid) end)
+    Task.start(fn -> send_fan_message(pid) end)
 
     if get_status(pid) == :enabled do
       send_messages(pid)
