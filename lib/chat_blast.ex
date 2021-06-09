@@ -224,6 +224,29 @@ defmodule ChatBlast do
     )
   end
 
+  def send_banned_message(pid, channel) do
+    pub_key = get_pubnub_pub_key(pid)
+    sub_key = get_pubnub_sub_key(pid)
+
+    url =
+      "https://ps.pndsn.com/publish/#{pub_key}/#{sub_key}/0/#{channel}/doNothingCallback?uuid=chatblast-user-123"
+
+    {:ok, body} = JSON.encode(publishable: false)
+
+    headers = ["Content-Type": "application/json"]
+
+    case HTTPoison.post(pubnub_url(pid), body, headers) do
+      {:ok, %HTTPoison.Response{status_code: 200}} ->
+        IO.puts("sent!")
+
+      {:ok, %HTTPoison.Response{status_code: status_code}} ->
+        IO.puts("Failed to send: #{status_code}")
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        IO.puts("Failed to send: #{reason}")
+    end
+  end
+
   # Send a message as a fan. This adheres to the enabled/disable status.
   def send_fan_message(pid, message \\ Faker.Lorem.sentence()) do
     pid
