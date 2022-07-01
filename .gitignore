@@ -24,3 +24,4 @@ chat_blast-*.tar
 
 # Creds we can use
 pubnub.config
+pubnub.config.*
